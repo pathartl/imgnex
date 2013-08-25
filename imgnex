@@ -112,21 +112,63 @@ echo "Creating /cache/recovery/openrecoveryscript..."
 	adb shell "echo wipe dalvik >> /cache/recovery/openrecoveryscript"
 	adb shell "echo restore /sdcard/RaymondBackup >> /cache/recovery/openrecoveryscript"
 	adb shell "echo cmd rm -r /sdcard/RaymondBackup >> /cache/recovery/openrecoveryscript"
+	adb reboot recovery
 }
 
-imgnex_reboot_to_bootloader
-imgnex_unlock_bootloader
-imgnex_flash_recovery
-imgnex_send_backup
-imgnex_create_recovery_script
+imgnex_workflow_finished() {
+	echo "At this time you can unplug your device. The image will be restoring so make sure you have enough battery! Feel free to run this command again to image another device."
+	aplay /usr/lib/libreoffice/share/gallery/sounds/cow.wav
+}
 
-# Reboot recovery
-echo "Restoring image..."
-adb reboot recovery
+case "$1" in
 
-# And we're done!
-echo "At this time you can unplug your device. The image will be restoring to make sure you have enough battery! Feel free to run this command again to image another device."
-
-# Play a sound just to notify us that the device is done imaging
-aplay /usr/lib/libreoffice/share/gallery/sounds/cow.wav
-
+full)   echo "Will run the full workflow"
+	imgnex_reboot_to_bootloader
+	imgnex_unlock_bootloader
+	imgnex_flash_recovery
+	imgnex_send_backup
+	imgnex_create_recovery_script
+	imgnex_workflow_finished
+	exit
+	;;
+unlock) echo "Starting workflow at bootloader unlock!"
+	imgnex_unlock_bootloader
+	imgnex_flash_recovery
+	imgnex_send_backup
+	imgnex_create_recovery_script
+	imgnex_workflow_finished
+	exit
+	;;
+recovery) echo "Starting workflow at recovery flashing!"
+	imgnex_flash_recovery
+	imgnex_send_backup
+	imgnex_create_recovery_script
+	imgnex_workflow_finished
+	exit
+	;;
+upload) echo "Starting workflow by first sending the backup!"
+	imgnex_send_backup
+	imgnex_create_recovery_script
+	imgnex_workflow_finished
+	exit
+	;;
+restore) echo "Starting the workflow by creating our recovery script!"
+	imgnex_create_recovery_script
+	imgnex_workflow_finished
+	exit
+	;;
+*)      echo "imgnex -- Nexus device imaging script"
+	echo "Created by Pat Hartl (pat@pathartl.me)"
+	echo "Usage:"
+	echo "imgnex full"
+	echo "   Runs full workflow from the beginning"
+	echo "imgnex unlock"
+	echo "   Starts workflow at the bootloader unlock if already in the bootloader."
+	echo "imgnex recovery"
+	echo "   Starts workflow at recovery flash stage if already in the bootloader."
+	echo "imgnex upload"
+	echo "   Starts workflow by sending the backup. Must be in recovery!"
+	echo "imgnex restore"
+	echo "   Starts workflow by creating recovery script and then initiating the restore."
+	exit
+esac
