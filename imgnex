@@ -1,0 +1,103 @@
+#!/bin/bash
+
+found=0
+
+## Function to detect if the device has USB debugging enabled
+find_adb() {
+devices=$(adb devices)
+
+if (echo $devices | grep -q "device$"); then
+	found=1
+fi
+
+}
+
+## Function to detect if the device is in recovery
+find_fastboot() {
+devices=$(fastboot devices)
+
+if (echo $devices | grep -q "fastboot$"); then
+	found=1
+fi
+}
+
+## Function to detect if the device is in recovery mode
+find_recovery() {
+devices=$(adb devices)
+
+if (echo $devices | grep -q "recovery$"); then
+	found=1
+fi
+}
+
+## Function to push a file to the device via adb
+adb_send_file() {
+adb push backup/$1 /sdcard/RaymondBackup/$1
+adb push backup/$1.md5 /sdcard/RaymondBackup/$1.md5
+}
+
+# Let's find ADB
+echo "Finding initial adb..."
+until [ $found -eq 1 ]; do
+	sleep 1
+	find_adb
+done
+echo "Found ADB! Rebooting to bootloader!"
+found=0
+
+# Reboot to bootloader
+adb reboot bootloader
+# Wait for fastboot
+echo "Waiting for fastboot..."
+until [ $found -eq 1 ]; do
+	sleep 1
+	find_fastboot
+done
+found=0
+
+# Unlock bootloader
+echo "Found fastboot! Unlocking bootloader!"
+fastboot oem unlock
+
+# Done unlocking. Flash recovery!
+echo "Flashing recovery..."
+fastboot flash recovery recovery.img
+
+# Boot into recovery
+echo "Booting into recovery..."
+fastboot boot recovery.img
+
+# Wait for recovery ADB
+until [ $found -eq 1 ]; do
+	sleep 1
+	find_recovery
+done
+found=0
+echo "Recovery booted!"
+
+# Push our backup over
+echo "Pushing our backup to the device!"
+adb shell "mkdir /sdcard/RaymondBackup"
+adb_send_file system.ext4.win
+adb_send_file data.ext4.win
+adb_send_file boot.emmc.win
+adb_send_file recovery.emmc.win
+
+# Write our open recovery script via adb
+echo "Creating /cache/recovery/openrecoveryscript..."
+adb shell "mkdir /cache/recovery"
+adb shell "echo wipe cache >> /cache/recovery/openrecoveryscript"
+adb shell "echo wipe data >> /cache/recovery/openrecoveryscript"
+adb shell "echo wipe dalvik >> /cache/recovery/openrecoveryscript"
+adb shell "echo restore /sdcard/RaymondBackup >> /cache/recovery/openrecoveryscript"
+adb shell "echo cmd rm -r /sdcard/RaymondBackup >> /cache/recovery/openrecoveryscript"
+
+# Reboot recovery
+echo "Restoring image..."
+adb reboot recovery
+
+# And we're done!
+echo "At this time you can unplug your device. The image will be restoring to make sure you have enough battery! Feel free to run this command again to image another device."
+
+aplay /usr/lib/libreoffice/share/gallery/sounds/cow.wav
+
