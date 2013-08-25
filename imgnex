@@ -46,6 +46,16 @@ wait_for_adb() {
 	found=0
 }
 
+wait_for_fastboot() {
+	# Find fastboot
+	echo "Looking for fastboot..."
+	until [ $found -eq 1 ]; do
+		sleep 1
+		find_fastboot
+	done
+	found=0
+}
+
 adb_reboot_to_bootloader() {
 	# Wait for ADB
 	wait_for_adb
@@ -54,17 +64,12 @@ adb_reboot_to_bootloader() {
 }
 
 adb_unlock_bootloader () {
-# Wait for fastboot
-echo "Waiting for fastboot..."
-until [ $found -eq 1 ]; do
-	sleep 1
-	find_fastboot
-done
-found=0
+	# Wait for fastboot
+	wait_for_fastboot
 
-# Unlock bootloader
-echo "Found fastboot! Unlocking bootloader!"
-fastboot oem unlock
+	# Unlock bootloader
+	echo "Found fastboot! Unlocking bootloader!"
+	fastboot oem unlock
 }
 
 # Done unlocking. Flash recovery!
