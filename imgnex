@@ -56,14 +56,24 @@ wait_for_fastboot() {
 	found=0
 }
 
-adb_reboot_to_bootloader() {
+wait_for_recovery() {
+	# Find recovery
+	echo "Looking for recovery..."
+	until [ $found -eq 1 ]; do
+		sleep 1
+		find_recovery
+	done
+	found=0
+}
+
+imgnex_reboot_to_bootloader() {
 	# Wait for ADB
 	wait_for_adb
 	# Reboot to bootloader
 	adb reboot bootloader
 }
 
-adb_unlock_bootloader () {
+imgnex_unlock_bootloader () {
 	# Wait for fastboot
 	wait_for_fastboot
 
@@ -72,38 +82,43 @@ adb_unlock_bootloader () {
 	fastboot oem unlock
 }
 
-# Done unlocking. Flash recovery!
-echo "Flashing recovery..."
-fastboot flash recovery recovery.img
+imgnex_flash_recovery () {
+	# Done unlocking. Flash recovery!
+	echo "Flashing recovery..."
+	fastboot flash recovery recovery.img
 
-# Boot into recovery
-echo "Booting into recovery..."
-fastboot boot recovery.img
+	# Boot into recovery
+	echo "Booting into recovery..."
+	fastboot boot recovery.img
+}
 
-# Wait for recovery ADB
-until [ $found -eq 1 ]; do
-	sleep 1
-	find_recovery
-done
-found=0
-echo "Recovery booted!"
+imgnex_send_backup () {
+	wait_for_recovery
+	# Push our backup over
+	echo "Pushing our backup to the device!"
+	adb shell "mkdir /sdcard/RaymondBackup"
+	adb_send_file system.ext4.win
+	adb_send_file data.ext4.win
+	adb_send_file boot.emmc.win
+	adb_send_file recovery.emmc.win
+}
 
-# Push our backup over
-echo "Pushing our backup to the device!"
-adb shell "mkdir /sdcard/RaymondBackup"
-adb_send_file system.ext4.win
-adb_send_file data.ext4.win
-adb_send_file boot.emmc.win
-adb_send_file recovery.emmc.win
-
+imgnex_create_recovery_script () {
 # Write our open recovery script via adb
 echo "Creating /cache/recovery/openrecoveryscript..."
-adb shell "mkdir /cache/recovery"
-adb shell "echo wipe cache >> /cache/recovery/openrecoveryscript"
-adb shell "echo wipe data >> /cache/recovery/openrecoveryscript"
-adb shell "echo wipe dalvik >> /cache/recovery/openrecoveryscript"
-adb shell "echo restore /sdcard/RaymondBackup >> /cache/recovery/openrecoveryscript"
-adb shell "echo cmd rm -r /sdcard/RaymondBackup >> /cache/recovery/openrecoveryscript"
+	adb shell "mkdir /cache/recovery"
+	adb shell "echo wipe cache >> /cache/recovery/openrecoveryscript"
+	adb shell "echo wipe data >> /cache/recovery/openrecoveryscript"
+	adb shell "echo wipe dalvik >> /cache/recovery/openrecoveryscript"
+	adb shell "echo restore /sdcard/RaymondBackup >> /cache/recovery/openrecoveryscript"
+	adb shell "echo cmd rm -r /sdcard/RaymondBackup >> /cache/recovery/openrecoveryscript"
+}
+
+imgnex_reboot_to_bootloader
+imgnex_unlock_bootloader
+imgnex_flash_recovery
+imgnex_send_backup
+imgnex_create_recovery_script
 
 # Reboot recovery
 echo "Restoring image..."
@@ -112,5 +127,6 @@ adb reboot recovery
 # And we're done!
 echo "At this time you can unplug your device. The image will be restoring to make sure you have enough battery! Feel free to run this command again to image another device."
 
+# Play a sound just to notify us that the device is done imaging
 aplay /usr/lib/libreoffice/share/gallery/sounds/cow.wav
 
