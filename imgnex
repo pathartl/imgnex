@@ -36,17 +36,24 @@ adb push backup/$1 /sdcard/RaymondBackup/$1
 adb push backup/$1.md5 /sdcard/RaymondBackup/$1.md5
 }
 
-# Let's find ADB
-echo "Finding initial adb..."
-until [ $found -eq 1 ]; do
-	sleep 1
-	find_adb
-done
-echo "Found ADB! Rebooting to bootloader!"
-found=0
+wait_for_adb() {
+	# Find adb
+	echo "Looking for ADB..."
+	until [ $found -eq 1 ]; do
+		sleep 1
+		find_adb
+	done
+	found=0
+}
 
-# Reboot to bootloader
-adb reboot bootloader
+adb_reboot_to_bootloader() {
+	# Wait for ADB
+	wait_for_adb
+	# Reboot to bootloader
+	adb reboot bootloader
+}
+
+adb_unlock_bootloader () {
 # Wait for fastboot
 echo "Waiting for fastboot..."
 until [ $found -eq 1 ]; do
@@ -58,6 +65,7 @@ found=0
 # Unlock bootloader
 echo "Found fastboot! Unlocking bootloader!"
 fastboot oem unlock
+}
 
 # Done unlocking. Flash recovery!
 echo "Flashing recovery..."
