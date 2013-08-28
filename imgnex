@@ -80,9 +80,12 @@ imgnex_unlock_bootloader () {
 	# Unlock bootloader
 	echo "Found fastboot! Unlocking bootloader!"
 	fastboot oem unlock
+	fastboot continue
 }
 
 imgnex_flash_recovery () {
+	wait_for_adb
+	adb reboot bootloader
 	# Done unlocking. Flash recovery!
 	echo "Flashing recovery..."
 	fastboot flash recovery recovery.img
